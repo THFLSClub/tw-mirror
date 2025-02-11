@@ -2,6 +2,7 @@
 2dust/clashN
 BengbuGuards/MythwareToolkit
 Clash-Verge-rev/clash-verge-rev
+DrKLO/Telegram
 Embarcadero/Dev-Cpp
 Eugeny/tabby
 FCL-Team/FoldCraftLauncher
