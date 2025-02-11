@@ -2,7 +2,6 @@
 2dust/clashN
 BengbuGuards/MythwareToolkit
 Clash-Verge-rev/clash-verge-rev
-DrKLO/Telegram
 Embarcadero/Dev-Cpp
 Eugeny/tabby
 FCL-Team/FoldCraftLauncher
@@ -15,6 +14,7 @@ LSPosed/LSPosed
 MetaCubeX/ClashMetaForAndroid
 MatsuriDayo/NekoBoxForAndroid
 MatsuriDayo/nekoray
+Nekogram/Nekogram
 niuhuan/pikapika
 PCL-Community/PCL2-CE
 qier222/YesPlayMusic
