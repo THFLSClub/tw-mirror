@@ -1,0 +1,60 @@
+{
+  "hiddify/hiddify-app": {
+    "version": "v2.0.5",
+    "assets": [
+      {
+        "name": "Hiddify-Android-arm64.apk",
+        "download_url": "https://github.com/hiddify/hiddify-app/releases/download/v2.0.5/Hiddify-Android-arm64.apk"
+      },
+      {
+        "name": "Hiddify-Android-arm7.apk",
+        "download_url": "https://github.com/hiddify/hiddify-app/releases/download/v2.0.5/Hiddify-Android-arm7.apk"
+      },
+      {
+        "name": "Hiddify-Android-universal.apk",
+        "download_url": "https://github.com/hiddify/hiddify-app/releases/download/v2.0.5/Hiddify-Android-universal.apk"
+      },
+      {
+        "name": "Hiddify-Android-x86_64.apk",
+        "download_url": "https://github.com/hiddify/hiddify-app/releases/download/v2.0.5/Hiddify-Android-x86_64.apk"
+      },
+      {
+        "name": "Hiddify-Debian-x64.deb",
+        "download_url": "https://github.com/hiddify/hiddify-app/releases/download/v2.0.5/Hiddify-Debian-x64.deb"
+      },
+      {
+        "name": "Hiddify-iOS.ipa",
+        "download_url": "https://github.com/hiddify/hiddify-app/releases/download/v2.0.5/Hiddify-iOS.ipa"
+      },
+      {
+        "name": "Hiddify-Linux-x64.AppImage",
+        "download_url": "https://github.com/hiddify/hiddify-app/releases/download/v2.0.5/Hiddify-Linux-x64.AppImage"
+      },
+      {
+        "name": "Hiddify-MacOS-Installer.pkg",
+        "download_url": "https://github.com/hiddify/hiddify-app/releases/download/v2.0.5/Hiddify-MacOS-Installer.pkg"
+      },
+      {
+        "name": "Hiddify-MacOS.dmg",
+        "download_url": "https://github.com/hiddify/hiddify-app/releases/download/v2.0.5/Hiddify-MacOS.dmg"
+      },
+      {
+        "name": "Hiddify-rpm-x64.rpm",
+        "download_url": "https://github.com/hiddify/hiddify-app/releases/download/v2.0.5/Hiddify-rpm-x64.rpm"
+      },
+      {
+        "name": "Hiddify-Windows-Portable-x64.zip",
+        "download_url": "https://github.com/hiddify/hiddify-app/releases/download/v2.0.5/Hiddify-Windows-Portable-x64.zip"
+      },
+      {
+        "name": "Hiddify-Windows-Setup-x64.exe",
+        "download_url": "https://github.com/hiddify/hiddify-app/releases/download/v2.0.5/Hiddify-Windows-Setup-x64.exe"
+      },
+      {
+        "name": "Hiddify-Windows-Setup-x64.Msix",
+        "download_url": "https://github.com/hiddify/hiddify-app/releases/download/v2.0.5/Hiddify-Windows-Setup-x64.Msix"
+      }
+    ],
+    "updated_at": "2025-02-11T14:57:48.679Z"
+  }
+}

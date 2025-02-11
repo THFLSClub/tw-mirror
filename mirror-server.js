@@ -4,7 +4,7 @@ const cron = require('node-cron');
 const express = require('express');
 
 const REPOS_FILE = 'repos.txt';
-const PORT = 3000;
+const PORT = 3100;
 const MIRROR_BASE = process.env.MIRROR_BASE || 'https://gh.llkk.cc/'; // 镜像基础地址
 const CACHE_FILE = 'repo_cache.json'; // 版本信息缓存文件
 
