@@ -84,6 +84,7 @@ function startServer() {
     app.get('/', (req, res) => {
         const repos = getRepositories();
         res.send(`
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
             <h1>TWOSI - 天外开源软件镜像站</h1>
             <ul>${repos.map(repo => `
                 <li>
@@ -102,6 +103,7 @@ function startServer() {
         if (!data) return res.status(404).send('仓库未同步');
 
         res.send(`
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
             <h1>${repo} @ ${data.version}</h1>
             <ul>${data.assets.map(asset => `
                 <li>
