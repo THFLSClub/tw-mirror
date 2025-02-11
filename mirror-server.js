@@ -191,7 +191,7 @@ function startServer() {
                                 </p>
                                 <div style="margin-top: 1rem">
                                     ${repo.version ? 
-                                        `<span class="badge">v${repo.version}</span>` : 
+                                        `<span class="badge">${repo.version[0] == 'v' ? repo.version : 'v' + repo.version}</span>` : 
                                         '<span style="color: #ef4444">未同步</span>'}
                                 </div>
                             </a>
@@ -224,7 +224,7 @@ function startServer() {
                     <div class="container">
                         <a href="/" class="button" style="margin-bottom: 1rem">← 返回首页</a>
                         <h1>${repo.split('/')[1]}</h1>
-                        <p>${repo} @ v${data.version}</p>
+                        <p>${repo} @ ${repo.version[0] == 'v' ? repo.version : 'v' + repo.version}</p>
                     </div>
                 </div>
 
