@@ -3,5 +3,6 @@ tailscale/tailscale
 2dust/v2rayn
 SagerNet/sing-box
 microsoft/vscode
-git/git
 Embarcadero/Dev-Cpp
+TurboWarp/desktop
+scratchfoundation/scratch-desktop
