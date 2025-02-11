@@ -153,6 +153,10 @@ function startServer() {
                     padding: 1.5rem 1rem;
                 }
             }
+            a {
+                text-decoration: none;
+            }
+
         </style>
     `;
 
