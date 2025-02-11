@@ -51,3 +51,11 @@ node mirror-server.js
   ]
 }
 ```
+
+使用实例：
+
+从 manifest 中获取文件名，然后：
+
+```
+https://mirror.thfls.club/hiddify/hiddify-app/Hiddify-Android-universal.apk
+```
