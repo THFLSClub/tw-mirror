@@ -2,7 +2,6 @@ hiddify/hiddify-app
 tailscale/tailscale
 2dust/v2rayn
 SagerNet/sing-box
-microsoft/vscode
 Embarcadero/Dev-Cpp
 TurboWarp/desktop
 MetaCubeX/ClashMetaForAndroid
@@ -11,3 +10,6 @@ Clash-Verge-rev/clash-verge-rev
 MatsuriDayo/NekoBoxForAndroid
 MatsuriDayo/nekoray
 Eugeny/tabby
+niuhuan/pikapika
+VSCodium/vscodium
+imengyu/JiYuTrainer
