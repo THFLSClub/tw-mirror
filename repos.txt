@@ -8,3 +8,7 @@ TurboWarp/desktop
 scratchfoundation/scratch-desktop
 MetaCubeX/ClashMetaForAndroid
 Clash-Verge-rev/clash-verge-rev/releases
+2dust/clashN
+MatsuriDayo/NekoBoxForAndroid
+MatsuriDayo/nekoray
+Eugeny/tabby
