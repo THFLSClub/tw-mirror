@@ -118,6 +118,7 @@ function startServer() {
                 background: var(--card-bg);
                 border-radius: 0.5rem;
                 padding: 1.5rem;
+                text-decoration: none;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.05);
                 transition: transform 0.2s;
             }
@@ -153,10 +154,6 @@ function startServer() {
                     padding: 1.5rem 1rem;
                 }
             }
-            a {
-                text-decoration: none;
-            }
-
         </style>
     `;
 
@@ -245,7 +242,7 @@ function startServer() {
                                         <a href="/${repo}/${asset.name}" 
                                            class="button"
                                            download>
-                                            ↓ 下载
+                                            ↓
                                         </a>
                                     </div>
                                 </div>
