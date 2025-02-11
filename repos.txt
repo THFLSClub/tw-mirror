@@ -13,3 +13,11 @@ Eugeny/tabby
 niuhuan/pikapika
 VSCodium/vscodium
 imengyu/JiYuTrainer
+LYXOfficial/NoTopDomain
+BengbuGuards/MythwareToolkit
+LSPosed/LSPosed
+topjohnwu/Magisk
+rainmeter/rainmeter
+qier222/YesPlayMusic
+HMCL-dev/HMCL
+PCL-Community/PCL2-CE
