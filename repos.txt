@@ -1,1 +1,2 @@
 hiddify/hiddify-app
+tailscale/tailscale
