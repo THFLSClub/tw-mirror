@@ -4,6 +4,7 @@ BengbuGuards/MythwareToolkit
 Clash-Verge-rev/clash-verge-rev
 Embarcadero/Dev-Cpp
 Eugeny/tabby
+FCL-Team/FoldCraftLauncher
 hiddify/hiddify-app
 hect0x7/JMComic-APK
 HMCL-dev/HMCL
