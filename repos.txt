@@ -5,9 +5,8 @@ SagerNet/sing-box
 microsoft/vscode
 Embarcadero/Dev-Cpp
 TurboWarp/desktop
-scratchfoundation/scratch-desktop
 MetaCubeX/ClashMetaForAndroid
-Clash-Verge-rev/clash-verge-rev/releases
+Clash-Verge-rev/clash-verge-rev
 2dust/clashN
 MatsuriDayo/NekoBoxForAndroid
 MatsuriDayo/nekoray
