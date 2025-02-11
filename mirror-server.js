@@ -4,8 +4,8 @@ const cron = require('node-cron');
 const express = require('express');
 
 const REPOS_FILE = 'repos.txt';
-const PORT = 3000;
-const MIRROR_BASE = process.env.MIRROR_BASE || 'https://gh.llkk.cc/'; // 镜像基础地址
+const PORT = 3100;
+const MIRROR_BASE = process.env.MIRROR_BASE || 'https://gh.thfls.club/'; // 镜像基础地址
 const CACHE_FILE = 'repo_cache.json'; // 版本信息缓存文件
 
 let repoCache = {}; // 内存缓存
@@ -84,7 +84,7 @@ function startServer() {
     app.get('/', (req, res) => {
         const repos = getRepositories();
         res.send(`
-            <h1>GitHub Release 镜像代理</h1>
+            <h1>TWOSI - 天外开源软件镜像站</h1>
             <ul>${repos.map(repo => `
                 <li>
                     <a href="/${repo}/">${repo}</a>
