@@ -1,2 +1,7 @@
 hiddify/hiddify-app
 tailscale/tailscale
+2dust/v2rayn
+SagerNet/sing-box
+microsoft/vscode
+git/git
+Embarcadero/Dev-Cpp
