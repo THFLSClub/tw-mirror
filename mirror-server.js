@@ -224,7 +224,7 @@ function startServer() {
                     <div class="container">
                         <a href="/" class="button" style="margin-bottom: 1rem">← 返回首页</a>
                         <h1>${repo.split('/')[1]}</h1>
-                        <p>${repo} @ ${repo.version[0] == 'v' ? repo.version : 'v' + repo.version}</p>
+                        <p>${repo} @ ${data.version[0] == 'v' ? data.version : 'v' + data.version}</p>
                     </div>
                 </div>
 
