@@ -5,7 +5,7 @@
 
 1. 安装依赖：
 ```bash
-npm install express axios node-cron
+npm install
 ```
 
 2. 创建`repos.txt`文件，每行一个需要镜像的GitHub仓库（格式：owner/repo），例如：
@@ -21,18 +21,9 @@ node mirror-server.js
 
 ## API
 
-已镜像静态文件结构：
+API 基本模板：`https://mirror.thfls.club/<author>/<repo>/<filename>`
 
-```
-./
-├── <repo1>/
-│   ├── 所有资源文件
-│   └── manifest.json
-├── <repo2>/
-│   ├── ...
-├── repos.txt
-└── mirror-server.js
-```
+`filename` 可以从 `manifest.json` 获得。
 
 **manifest.json 示例：**
 
@@ -52,10 +43,10 @@ node mirror-server.js
 }
 ```
 
-使用实例：
-
-从 manifest 中获取文件名，然后：
-
+**访问示例：**
 ```
-https://mirror.thfls.club/hiddify/hiddify-app/Hiddify-Android-universal.apk
+http://localhost:3000/microsoft/vscode/
+http://localhost:3000/microsoft/vscode/VSCodeSetup-x64-1.82.0.exe
 ```
+
+
