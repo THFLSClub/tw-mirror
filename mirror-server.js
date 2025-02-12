@@ -262,6 +262,9 @@ function startServer() {
                                         <h3 style="color: var(--primary)">
                                             ${repo.name.split('/')[1]}
                                         </h3>
+                                        <p style="color: #64748b; margin: 0.5rem 0">
+                                            ${repo.name}
+                                        </p>
                                         ${repo.meta?.description ? `
                                             <p style="
                                                 color: var(--secondary);
