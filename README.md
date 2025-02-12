@@ -19,30 +19,6 @@ nodejs/node
 node mirror-server.js
 ```
 
-## API
-
-API 基本模板：`https://mirror.thfls.club/<author>/<repo>/<filename>`
-
-`filename` 可以从 `manifest.json` 获得。
-
-**manifest.json 示例：**
-
-```json
-{
-  "repository": "microsoft/vscode",
-  "version": "1.82.0",
-  "published_at": "2023-09-07T16:36:04Z",
-  "author": "vscode-bot",
-  "assets": [
-    {
-      "name": "VSCode-win32-x64-1.82.0.zip",
-      "size": 101234567,
-      "download_count": 12345
-    }
-  ]
-}
-```
-
 **访问示例：**
 ```
 http://localhost:3000/microsoft/vscode/
