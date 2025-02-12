@@ -218,6 +218,7 @@ function startServer() {
                 <div class="header">
                     <div class="container">
                         <h1>TWOSI 开源镜像站</h1>
+                        <p>天外软件镜像服务 · ${Object.keys(repoCache).length}个仓库镜像中</p>
                         <div style="margin-top: 1.5rem; display: flex; gap: 1rem; flex-wrap: wrap;">
                             <input 
                                 type="text" 
