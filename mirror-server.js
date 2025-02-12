@@ -385,7 +385,7 @@ function startServer() {
                                                 text-decoration: none;
                                            "
                                            download>
-                                            ↓ 下载
+                                            ↓
                                         </a>
                                     </div>
                                 </div>
