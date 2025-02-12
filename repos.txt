@@ -1,6 +1,7 @@
 2dust/v2rayn
 2dust/clashN
 BengbuGuards/MythwareToolkit
+bitwarden/android
 Clash-Verge-rev/clash-verge-rev
 Embarcadero/Dev-Cpp
 Eugeny/tabby
