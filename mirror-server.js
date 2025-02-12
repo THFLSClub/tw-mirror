@@ -169,43 +169,6 @@ function startServer() {
         </style>
     `;
 
-// 在启动Web服务的部分添加：
-// 404处理中间件
-app.get('/404', (req, res) => {
-    return `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>页面未找到 - TWOSI</title>
-            ${commonStyles}
-        </head>
-        <body>
-            <div class="header">
-                <div class="container">
-                    <h1>404 - 页面未找到</h1>
-                    <p>请求的资源不存在</p>
-                </div>
-            </div>
-            <div class="container">
-                <div class="card" style="text-align: center; padding: 3rem">
-                    <p style="font-size: 1.2rem; margin-bottom: 1.5rem">😢 您访问的页面不存在</p>
-                    <a href="/" style="
-                        padding: 0.75rem 1.5rem;
-                        background: var(--primary);
-                        color: white;
-                        border-radius: 0.5rem;
-                        text-decoration: none;
-                        display: inline-block;
-                    ">返回首页</a>
-                </div>
-            </div>
-        </body>
-        </html>
-    `;
-});
-    
     // 首页路由
     app.get('/', (req, res) => {
         const repos = getRepositories().map(repo => ({
@@ -458,6 +421,41 @@ if (!data) {
         
         res.redirect(`${MIRROR_BASE}${asset.download_url}`);
     });
+
+    app.all('*', (req, res) => {
+    return `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>页面未找到 - TWOSI</title>
+            ${commonStyles}
+        </head>
+        <body>
+            <div class="header">
+                <div class="container">
+                    <h1>404 - 页面未找到</h1>
+                    <p>请求的资源不存在</p>
+                </div>
+            </div>
+            <div class="container">
+                <div class="card" style="text-align: center; padding: 3rem">
+                    <p style="font-size: 1.2rem; margin-bottom: 1.5rem">😢 您访问的页面不存在</p>
+                    <a href="/" style="
+                        padding: 0.75rem 1.5rem;
+                        background: var(--primary);
+                        color: white;
+                        border-radius: 0.5rem;
+                        text-decoration: none;
+                        display: inline-block;
+                    ">返回首页</a>
+                </div>
+            </div>
+        </body>
+        </html>
+    `;
+});
 
     app.listen(PORT, () => {
         console.log(`服务已启动: http://localhost:${PORT}`);
