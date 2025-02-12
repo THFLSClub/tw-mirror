@@ -423,7 +423,7 @@ if (!data) {
     });
 
     app.all('*', (req, res) => {
-    return `
+    res.status(404).send(`
         <!DOCTYPE html>
         <html>
         <head>
@@ -454,7 +454,7 @@ if (!data) {
             </div>
         </body>
         </html>
-    `;
+    `);
 });
 
     app.listen(PORT, () => {
