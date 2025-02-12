@@ -190,24 +190,32 @@ function startServer() {
                         const sort = document.getElementById('sort');
                         const grid = document.querySelector('.grid');
                         
-                        function updateView() {
-                            const searchTerm = search.value.toLowerCase();
-                            const sortKey = sort.value;
-                            
-                            Array.from(grid.children)
-                                .filter(card => {
-                                    const title = card.dataset.name.toLowerCase();
-                                    const desc = card.dataset.desc?.toLowerCase() || '';
-                                    return title.includes(searchTerm) || desc.includes(searchTerm);
-                                })
-                                .sort((a, b) => {
-                                    if (sortKey === 'stars') {
-                                        return (b.dataset.stars || 0) - (a.dataset.stars || 0);
-                                    }
-                                    return new Date(b.dataset.updated) - new Date(a.dataset.updated);
-                                })
-                                .forEach(card => grid.appendChild(card));
-                        }
+function updateView() {
+    const searchTerm = search.value.toLowerCase();
+    const sortKey = sort.value;
+    
+    const cards = Array.from(grid.children);
+    const filtered = cards.filter(card => {
+        const title = card.dataset.name.toLowerCase();
+        const desc = card.dataset.desc?.toLowerCase() || '';
+        return title.includes(searchTerm) || desc.includes(searchTerm);
+    });
+    
+    const sorted = filtered.sort((a, b) => {
+        if (sortKey === 'stars') {
+            return (b.dataset.stars || 0) - (a.dataset.stars || 0);
+        }
+        return new Date(b.dataset.updated) - new Date(a.dataset.updated);
+    });
+    
+    // 清空grid
+    while (grid.firstChild) {
+        grid.removeChild(grid.firstChild);
+    }
+    
+    // 添加排序后的元素
+    sorted.forEach(card => grid.appendChild(card));
+}
                         
                         search.addEventListener('input', updateView);
                         sort.addEventListener('change', updateView);
