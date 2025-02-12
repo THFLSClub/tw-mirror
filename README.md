@@ -14,7 +14,13 @@ microsoft/vscode
 nodejs/node
 ```
 
-3. 启动服务：
+3. 配置环境变量（可选）：
+```bash
+export GITHUB_TOKEN="your_github_token"  # 提高API限制
+export MIRROR_BASE="https://your.mirror.url/"
+```
+
+4. 启动服务：
 ```bash
 node mirror-server.js
 ```
