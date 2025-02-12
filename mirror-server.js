@@ -171,8 +171,8 @@ function startServer() {
 
 // 在启动Web服务的部分添加：
 // 404处理中间件
-app.use((req, res) => {
-    res.status(404).send(`
+app.get('/404', (req, res) => {
+    return `
         <!DOCTYPE html>
         <html>
         <head>
@@ -203,7 +203,7 @@ app.use((req, res) => {
             </div>
         </body>
         </html>
-    `);
+    `;
 });
     
     // 首页路由
