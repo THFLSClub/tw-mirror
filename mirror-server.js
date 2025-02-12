@@ -103,7 +103,7 @@ function scheduleUpdates() {
 function startServer() {
     const app = express();
     app.use(express.static('public'));
-
+    
     // 公共样式和脚本
     const commonStyles = `
         <style>
@@ -169,6 +169,43 @@ function startServer() {
         </style>
     `;
 
+// 在启动Web服务的部分添加：
+// 404处理中间件
+app.use((req, res) => {
+    res.status(404).send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>页面未找到 - TWOSI</title>
+            ${commonStyles}
+        </head>
+        <body>
+            <div class="header">
+                <div class="container">
+                    <h1>404 - 页面未找到</h1>
+                    <p>请求的资源不存在</p>
+                </div>
+            </div>
+            <div class="container">
+                <div class="card" style="text-align: center; padding: 3rem">
+                    <p style="font-size: 1.2rem; margin-bottom: 1.5rem">😢 您访问的页面不存在</p>
+                    <a href="/" style="
+                        padding: 0.75rem 1.5rem;
+                        background: var(--primary);
+                        color: white;
+                        border-radius: 0.5rem;
+                        text-decoration: none;
+                        display: inline-block;
+                    ">返回首页</a>
+                </div>
+            </div>
+        </body>
+        </html>
+    `);
+});
+    
     // 首页路由
     app.get('/', (req, res) => {
         const repos = getRepositories().map(repo => ({
@@ -184,43 +221,40 @@ function startServer() {
                 <meta name="viewport" content="width=device-width, initial-scale=1">
                 <title>TWOSI 开源镜像站</title>
                 ${commonStyles}
-                <script>
-                    document.addEventListener('DOMContentLoaded', () => {
-                        const search = document.getElementById('search');
-                        const sort = document.getElementById('sort');
-                        const grid = document.querySelector('.grid');
-                        
-function updateView() {
-    const searchTerm = search.value.toLowerCase();
-    const sortKey = sort.value;
-    
-    const cards = Array.from(grid.children);
-    const filtered = cards.filter(card => {
-        const title = card.dataset.name.toLowerCase();
-        const desc = card.dataset.desc?.toLowerCase() || '';
-        return title.includes(searchTerm) || desc.includes(searchTerm);
-    });
-    
-    const sorted = filtered.sort((a, b) => {
-        if (sortKey === 'stars') {
-            return (b.dataset.stars || 0) - (a.dataset.stars || 0);
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const search = document.getElementById('search');
+        const sort = document.getElementById('sort');
+        const grid = document.querySelector('.grid');
+        let originalCards = Array.from(grid.children); // 保存原始卡片副本
+
+        function updateView() {
+            const searchTerm = search.value.toLowerCase();
+            const sortKey = sort.value;
+            
+            // 始终使用原始副本进行过滤
+            const filtered = originalCards.filter(card => {
+                const title = card.dataset.name.toLowerCase();
+                const desc = card.dataset.desc?.toLowerCase() || '';
+                return title.includes(searchTerm) || desc.includes(searchTerm);
+            });
+            
+            const sorted = filtered.sort((a, b) => {
+                if (sortKey === 'stars') {
+                    return (b.dataset.stars || 0) - (a.dataset.stars || 0);
+                }
+                return new Date(b.dataset.updated) - new Date(a.dataset.updated);
+            });
+            
+            // 清空并重新添加元素
+            grid.innerHTML = '';
+            sorted.forEach(card => grid.appendChild(card.cloneNode(true)));
         }
-        return new Date(b.dataset.updated) - new Date(a.dataset.updated);
+
+        search.addEventListener('input', updateView);
+        sort.addEventListener('change', updateView);
     });
-    
-    // 清空grid
-    while (grid.firstChild) {
-        grid.removeChild(grid.firstChild);
-    }
-    
-    // 添加排序后的元素
-    sorted.forEach(card => grid.appendChild(card));
-}
-                        
-                        search.addEventListener('input', updateView);
-                        sort.addEventListener('change', updateView);
-                    });
-                </script>
+</script>
             </head>
             <body>
                 <div class="header">
@@ -354,8 +388,10 @@ function updateView() {
         const repo = `${req.params.owner}/${req.params.repo}`;
         const data = repoCache[repo];
         
-        if (!data) return res.status(404).send('仓库未同步');
-
+if (!data) {
+        return res.status(404).redirect('/404'); // 重定向到404页面
+}
+        
         res.send(`
             <!DOCTYPE html>
             <html>
@@ -415,7 +451,10 @@ function updateView() {
         const filename = req.params.filename;
         const asset = repoCache[repo]?.assets.find(a => a.name === filename);
 
-        if (!asset) return res.status(404).send('文件不存在');
+        if (!asset) {
+        return res.status(404).redirect('/404'); // 重定向到404页面
+    }
+
         
         res.redirect(`${MIRROR_BASE}${asset.download_url}`);
     });
