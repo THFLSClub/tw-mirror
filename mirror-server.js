@@ -7,6 +7,8 @@ const REPOS_FILE = 'repos.txt';
 const PORT = process.env.PORT || 3100;
 const MIRROR_BASE = process.env.MIRROR_BASE || 'https://gh.thfls.club/';
 const CACHE_FILE = 'repo_cache.json';
+const REQUEST_INTERVAL = 3000; // 基础请求间隔 3 秒
+const MAX_RETRY_ATTEMPTS = 5;  // 最大重试次数
 
 let repoCache = {};
 
@@ -16,7 +18,6 @@ function loadCache() {
         repoCache = JSON.parse(fs.readFileSync(CACHE_FILE));
         console.log(`已加载 ${Object.keys(repoCache).length} 个仓库的缓存`);
     } catch (e) {
-        console.log('未找到缓存文件，将重新获取数据');
         repoCache = {};
     }
 }
@@ -34,10 +35,27 @@ function getRepositories() {
         .filter(l => l && !l.startsWith('#'));
 }
 
+// 计算下次重试时间（指数退避）
+function calcNextRetry(failCount) {
+    const baseDelay = 5 * 60 * 1000; // 5 分钟基础等待
+    return Date.now() + (baseDelay * Math.pow(2, failCount));
+}
+
 // 更新单个仓库信息
 async function updateRepo(repo) {
     const [owner, repoName] = repo.split('/');
     if (!owner || !repoName) return;
+
+    const currentRepo = repoCache[repo] || {
+        retryCount: 0,
+        nextRetry: 0
+    };
+
+    // 检查是否在冷却期
+    if (currentRepo.nextRetry > Date.now()) {
+        console.log(`[${repo}] 跳过（冷却中，剩余 ${Math.ceil((currentRepo.nextRetry - Date.now())/60000)} 分钟）`);
+        return;
+    }
 
     try {
         // 获取仓库基础信息
@@ -54,15 +72,11 @@ async function updateRepo(repo) {
         // 获取最新发布信息
         const { data: releaseData } = await axios.get(
             `https://api.github.com/repos/${owner}/${repoName}/releases/latest`,
-            {
-                headers: {
-                    'User-Agent': 'Node.js Mirror Proxy',
-                    Authorization: process.env.GITHUB_TOKEN ? `token ${process.env.GITHUB_TOKEN}` : undefined
-                }
-            }
+            { headers: { 'User-Agent': 'Node.js Mirror Proxy' } }
         );
 
         repoCache[repo] = {
+            ...repoCache[repo],
             version: releaseData.tag_name,
             assets: releaseData.assets.map(a => ({
                 name: a.name,
@@ -74,27 +88,58 @@ async function updateRepo(repo) {
                 description: repoData.description,
                 language: repoData.language,
                 last_commit: repoData.pushed_at
-            }
+            },
+            retryCount: 0, // 重置重试计数
+            nextRetry: 0    // 重置重试时间
         };
 
         saveCache();
         console.log(`[${repo}] 缓存更新成功 (${releaseData.tag_name})`);
     } catch (err) {
         console.error(`[${repo}] 更新失败:`, err.message);
-        if (repoCache[repo]) {
-            repoCache[repo].last_error = new Date().toISOString();
-            saveCache();
+        
+        const newRetryCount = currentRepo.retryCount + 1;
+        repoCache[repo] = {
+            ...currentRepo,
+            retryCount: newRetryCount,
+            nextRetry: calcNextRetry(newRetryCount),
+            last_error: new Date().toISOString()
+        };
+        
+        if (newRetryCount >= MAX_RETRY_ATTEMPTS) {
+            console.error(`[${repo}] 已达到最大重试次数，停止重试`);
         }
+        saveCache();
     }
+}
+
+// 智能排序仓库更新顺序
+function getSortedRepos() {
+    return getRepositories()
+        .map(repo => ({
+            name: repo,
+            lastUpdated: repoCache[repo]?.updated_at || 0,
+            retryCount: repoCache[repo]?.retryCount || 0
+        }))
+        .sort((a, b) => {
+            // 优先处理需要重试的仓库
+            if (a.retryCount > 0 || b.retryCount > 0) {
+                return a.retryCount - b.retryCount;
+            }
+            // 没有重试的按更新时间排序
+            return new Date(b.lastUpdated) - new Date(a.lastUpdated);
+        });
 }
 
 // 定时批量更新
 function scheduleUpdates() {
     cron.schedule('0 3 * * *', async () => {
         console.log('开始执行定时更新...');
-        for (const repo of getRepositories()) {
-            await updateRepo(repo);
-            await new Promise(resolve => setTimeout(resolve, 1500)); // 防止速率限制
+        const repos = getSortedRepos();
+        
+        for (const repo of repos) {
+            await updateRepo(repo.name);
+            await new Promise(resolve => setTimeout(resolve, REQUEST_INTERVAL));
         }
     });
 }
