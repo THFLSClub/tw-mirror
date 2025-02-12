@@ -183,7 +183,8 @@ function startServer() {
             .grid {
                 display: grid;
                 gap: 1.5rem;
-                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+       
             }
             .card {
                 background: var(--card-bg);
@@ -192,7 +193,26 @@ function startServer() {
                 text-decoration: none;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.05);
                 transition: transform 0.2s;
+                word-break: break-word;
+                overflow-wrap: anywhere;
             }
+            /* 限制内容宽度 */
+        .repo-name {
+            max-width: 90%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        /* 弹性布局防止溢出 */
+        .card > div:first-child {
+            display: flex;
+            gap: 1rem;
+            justify-content: space-between;
+        }
+        /* 语言标签对齐方式 */
+        .language-tag {
+            flex-shrink: 0;
+            align-self: flex-start;
+        }
             .card:hover {
                 transform: translateY(-2px);
             }
@@ -513,11 +533,12 @@ async function main() {
     scheduleUpdates();
     startServer();
     
-    // 启动时立即更新
+    // 启动时智能更新
     console.log('执行首次数据同步...');
-    for (const repo of getRepositories()) {
-        await updateRepo(repo);
-        await new Promise(resolve => setTimeout(resolve, 1000));
+    const repos = getSortedRepos();
+    for (const repo of repos) {
+        await updateRepo(repo.name);
+        await new Promise(resolve => setTimeout(resolve, REQUEST_INTERVAL));
     }
 }
 
