@@ -412,67 +412,70 @@ function startServer() {
     });
 
     // 仓库详情页
-    app.get('/:owner/:repo', (req, res) => {
-        const repo = `${req.params.owner}/${req.params.repo}`;
-        const data = repoCache[repo];
-        
-if (!data) {
-        return res.status(404).redirect('/404'); // 重定向到404页面
-}
-        
-        res.send(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1">
-                <title>${repo} - TWOSI</title>
-                ${commonStyles}
-            </head>
-            <body>
-                <div class="header">
-                    <div class="container">
-                        <a href="/" style="color: white; text-decoration: none; display: inline-block; margin-bottom: 1rem">
-                            ← 返回首页
-                        </a>
-                        <h1>${repo.split('/')[1]}</h1>
-                        <p>${repo} @ ${data.version.startsWith('v') ? data.version : 'v' + data.version}</p>
-                    </div>
-                </div>
+app.get('/:owner/:repo', (req, res) => {
+    const repo = `${req.params.owner}/${req.params.repo}`;
+    const data = repoCache[repo];
+    
+    if (!data || !data.version) {
+        return res.status(404).redirect('/404');
+    }
 
+    // 增加安全访问逻辑
+    const versionDisplay = data.version 
+        ? (data.version.startsWith('v') ? data.version : `v${data.version}`)
+        : '版本信息不可用';
+
+    const assetItems = (data.assets || [])
+        .map(asset => `
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center">
+                    <div>
+                        <h3 style="margin-bottom: 0.25rem">${asset.name || '未命名文件'}</h3>
+                        <small>${data.updated_at ? new Date(data.updated_at).toLocaleString() : '未知时间'} 同步</small>
+                    </div>
+                    ${asset.download_url ? `
+                    <a href="/${repo}/${asset.name}" 
+                       style="padding: 0.5rem 1rem; background: var(--primary); color: white; border-radius: 0.375rem; text-decoration: none;"
+                       download>
+                        ↓
+                    </a>
+                    ` : '<span style="color: var(--error)">无效链接</span>'}
+                </div>
+            </div>
+        `).join('');
+
+    res.send(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+            <title>${repo} - TWOSI</title>
+            ${commonStyles}
+        </head>
+        <body>
+            <div class="header">
                 <div class="container">
-                    <div class="card">
-                        <h2 style="margin-bottom: 1rem">可用下载</h2>
-                        <div class="grid">
-                            ${data.assets.map(asset => `
-                                <div class="card">
-                                    <div style="display: flex; justify-content: space-between; align-items: center">
-                                        <div>
-                                            <h3 style="margin-bottom: 0.25rem">${asset.name}</h3>
-                                            <small>${new Date(data.updated_at).toLocaleString()} 同步</small>
-                                        </div>
-                                        <a href="/${repo}/${asset.name}" 
-                                           style="
-                                                padding: 0.5rem 1rem;
-                                                background: var(--primary);
-                                                color: white;
-                                                border-radius: 0.375rem;
-                                                text-decoration: none;
-                                           "
-                                           download>
-                                            ↓
-                                        </a>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
+                    <a href="/" style="color: white; text-decoration: none; display: inline-block; margin-bottom: 1rem">
+                        ← 返回首页
+                    </a>
+                    <h1>${repo.split('/')[1]}</h1>
+                    <p>${repo} @ ${versionDisplay}</p>
+                </div>
+            </div>
+
+            <div class="container">
+                <div class="card">
+                    <h2 style="margin-bottom: 1rem">可用下载</h2>
+                    <div class="grid">
+                        ${assetItems}
                     </div>
                 </div>
-            </body>
-            </html>
-        `);
-    });
-
+            </div>
+        </body>
+        </html>
+    `);
+});
     // 文件代理下载
     app.get('/:owner/:repo/:filename', (req, res) => {
         const repo = `${req.params.owner}/${req.params.repo}`;
