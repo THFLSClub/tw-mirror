@@ -7,9 +7,8 @@ const REPOS_FILE = 'repos.txt';
 const PORT = process.env.PORT || 3100;
 const MIRROR_BASE = process.env.MIRROR_BASE || 'https://gh.thfls.club/';
 const CACHE_FILE = 'repo_cache.json';
-const SYNC_INTERVAL = process.env.SYNC_INTERVAL || 1500; // 基础间隔时间
-const MAX_RETRIES = process.env.MAX_RETRIES || 3;       // 最大重试次数
-const RETRY_DELAY = 5 * 60 * 1000; // 5分钟重试延迟
+const REQUEST_INTERVAL = 3000; // 基础请求间隔 3 秒
+const MAX_RETRY_ATTEMPTS = 5;  // 最大重试次数
 
 let repoCache = {};
 
@@ -19,7 +18,6 @@ function loadCache() {
         repoCache = JSON.parse(fs.readFileSync(CACHE_FILE));
         console.log(`已加载 ${Object.keys(repoCache).length} 个仓库的缓存`);
     } catch (e) {
-        console.log('未找到缓存文件，将重新获取数据');
         repoCache = {};
     }
 }
@@ -37,38 +35,48 @@ function getRepositories() {
         .filter(l => l && !l.startsWith('#'));
 }
 
+// 计算下次重试时间（指数退避）
+function calcNextRetry(failCount) {
+    const baseDelay = 5 * 60 * 1000; // 5 分钟基础等待
+    return Date.now() + (baseDelay * Math.pow(2, failCount));
+}
+
 // 更新单个仓库信息
 async function updateRepo(repo) {
     const [owner, repoName] = repo.split('/');
     if (!owner || !repoName) return;
 
-    const cacheEntry = repoCache[repo] || {};
-    const syncMeta = cacheEntry._syncMeta || { 
-        attempts: 0, 
-        nextRetry: null,
-        lastSuccess: null,
-        priority: 0
+    const currentRepo = repoCache[repo] || {
+        retryCount: 0,
+        nextRetry: 0
     };
 
-    try {
-        const headers = {
-            'User-Agent': 'Node.js Mirror Proxy',
-            Authorization: process.env.GITHUB_TOKEN ? `token ${process.env.GITHUB_TOKEN}` : undefined
-        };
+    // 检查是否在冷却期
+    if (currentRepo.nextRetry > Date.now()) {
+        console.log(`[${repo}] 跳过（冷却中，剩余 ${Math.ceil((currentRepo.nextRetry - Date.now())/60000)} 分钟）`);
+        return;
+    }
 
+    try {
         // 获取仓库基础信息
         const { data: repoData } = await axios.get(
             `https://api.github.com/repos/${owner}/${repoName}`,
-            { headers }
+            {
+                headers: {
+                    'User-Agent': 'Node.js Mirror Proxy',
+                    Authorization: process.env.GITHUB_TOKEN ? `token ${process.env.GITHUB_TOKEN}` : undefined
+                }
+            }
         );
 
         // 获取最新发布信息
         const { data: releaseData } = await axios.get(
             `https://api.github.com/repos/${owner}/${repoName}/releases/latest`,
-            { headers }
+            { headers: { 'User-Agent': 'Node.js Mirror Proxy' } }
         );
 
         repoCache[repo] = {
+            ...repoCache[repo],
             version: releaseData.tag_name,
             assets: releaseData.assets.map(a => ({
                 name: a.name,
@@ -81,107 +89,67 @@ async function updateRepo(repo) {
                 language: repoData.language,
                 last_commit: repoData.pushed_at
             },
-            _syncMeta: {
-                ...syncMeta,
-                attempts: 0,
-                nextRetry: null,
-                lastSuccess: Date.now()
-            }
+            retryCount: 0, // 重置重试计数
+            nextRetry: 0    // 重置重试时间
         };
 
         saveCache();
         console.log(`[${repo}] 缓存更新成功 (${releaseData.tag_name})`);
-        return true;
     } catch (err) {
         console.error(`[${repo}] 更新失败:`, err.message);
         
-        syncMeta.attempts += 1;
-        syncMeta.nextRetry = Date.now() + 
-            (Math.pow(2, syncMeta.attempts) * RETRY_DELAY);
+        const newRetryCount = currentRepo.retryCount + 1;
+        repoCache[repo] = {
+            ...currentRepo,
+            retryCount: newRetryCount,
+            nextRetry: calcNextRetry(newRetryCount),
+            last_error: new Date().toISOString()
+        };
         
-        if (syncMeta.attempts >= MAX_RETRIES) {
-            console.error(`[${repo}] 达到最大重试次数，暂停同步`);
-            syncMeta.nextRetry = Date.now() + (24 * 3600 * 1000);
+        if (newRetryCount >= MAX_RETRY_ATTEMPTS) {
+            console.error(`[${repo}] 已达到最大重试次数，停止重试`);
         }
-
-        repoCache[repo] = { 
-            ...cacheEntry, 
-            last_error: new Date().toISOString(),
-            _syncMeta: syncMeta 
-        };
         saveCache();
-        return false;
     }
 }
 
-// 智能同步队列管理
-function getSyncQueue() {
-    const now = Date.now();
+// 智能排序仓库更新顺序
+function getSortedRepos() {
     return getRepositories()
-        .map(repo => {
-            const meta = repoCache[repo]?._syncMeta || {};
-            return {
-                repo,
-                priority: calculatePriority(repo, now),
-                isRetry: meta.attempts > 0
-            };
-        })
-        .sort((a, b) => b.priority - a.priority);
+        .map(repo => ({
+            name: repo,
+            lastUpdated: repoCache[repo]?.updated_at || 0,
+            retryCount: repoCache[repo]?.retryCount || 0
+        }))
+        .sort((a, b) => {
+            // 优先处理需要重试的仓库
+            if (a.retryCount > 0 || b.retryCount > 0) {
+                return a.retryCount - b.retryCount;
+            }
+            // 没有重试的按更新时间排序
+            return new Date(b.lastUpdated) - new Date(a.lastUpdated);
+        });
 }
 
-function calculatePriority(repo, now) {
-    const meta = repoCache[repo]?._syncMeta || {};
-    let priority = 0;
-    
-    if (meta.lastSuccess) {
-        priority += (now - meta.lastSuccess) / 1000;
-    } else {
-        priority += 24 * 3600;
-    }
-    
-    if (meta.nextRetry && meta.nextRetry < now) {
-        priority += 48 * 3600;
-    }
-    
-    return priority;
-}
-
-// 智能同步核心逻辑
-async function smartSync() {
-    const queue = getSyncQueue();
-    console.log(`开始同步，队列长度：${queue.length}`);
-
-    for (const { repo, isRetry } of queue) {
-        const cacheEntry = repoCache[repo] || {};
-        const syncMeta = cacheEntry._syncMeta || { 
-            attempts: 0, 
-            nextRetry: null,
-            lastSuccess: null
-        };
-
-        if (syncMeta.nextRetry && Date.now() < syncMeta.nextRetry) continue;
-
-        await updateRepo(repo);
-        
-        const delay = SYNC_INTERVAL * (isRetry ? 2 : 1);
-        await new Promise(resolve => setTimeout(resolve, delay));
-    }
-}
-
-// 定时任务调度
+// 定时批量更新
 function scheduleUpdates() {
-    cron.schedule('0 * * * *', smartSync); // 每小时整点执行
-    cron.schedule('*/5 * * * *', () => {  // 每5分钟重试失败任务
-        console.log('执行重试任务...');
-        smartSync();
+    cron.schedule('0 3 * * *', async () => {
+        console.log('开始执行定时更新...');
+        const repos = getSortedRepos();
+        
+        for (const repo of repos) {
+            await updateRepo(repo.name);
+            await new Promise(resolve => setTimeout(resolve, REQUEST_INTERVAL));
+        }
     });
 }
 
-// Web服务
+// 启动Web服务
 function startServer() {
     const app = express();
     app.use(express.static('public'));
     
+    // 公共样式和脚本
     const commonStyles = `
         <style>
             :root {
@@ -215,7 +183,8 @@ function startServer() {
             .grid {
                 display: grid;
                 gap: 1.5rem;
-                grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+                grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+       
             }
             .card {
                 background: var(--card-bg);
@@ -224,35 +193,48 @@ function startServer() {
                 text-decoration: none;
                 box-shadow: 0 2px 4px rgba(0,0,0,0.05);
                 transition: transform 0.2s;
-                min-height: 200px;
-                display: flex;
-                flex-direction: column;
-                justify-content: space-between;
+                word-break: break-word;
+                overflow-wrap: anywhere;
             }
-            .card h3 {
-                font-size: 1.1rem;
-                overflow: hidden;
-                text-overflow: ellipsis;
-                white-space: nowrap;
+            /* 限制内容宽度 */
+        .repo-name {
+            max-width: 90%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        /* 弹性布局防止溢出 */
+        .card > div:first-child {
+            display: flex;
+            gap: 1rem;
+            justify-content: space-between;
+        }
+        /* 语言标签对齐方式 */
+        .language-tag {
+            flex-shrink: 0;
+            align-self: flex-start;
+        }
+            .card:hover {
+                transform: translateY(-2px);
             }
-            .card-description {
-                display: -webkit-box;
-                -webkit-line-clamp: 2;
-                -webkit-box-orient: vertical;
-                overflow: hidden;
-                color: #64748b;
-                margin: 0.5rem 0;
-                font-size: 0.9em;
-                line-height: 1.4;
+            @keyframes spin {
+                to { transform: rotate(360deg); }
+            }
+            .loader {
+                width: 24px;
+                height: 24px;
+                border: 3px solid #e2e8f0;
+                border-top-color: var(--primary);
+                border-radius: 50%;
+                animation: spin 1s linear infinite;
             }
             @media (max-width: 640px) {
                 .container { padding: 1rem; }
                 .header { padding: 1.5rem 1rem; }
-                .grid { grid-template-columns: 1fr; }
             }
         </style>
     `;
 
+    // 首页路由
     app.get('/', (req, res) => {
         const repos = getRepositories().map(repo => ({
             name: repo,
@@ -267,38 +249,40 @@ function startServer() {
                 <meta name="viewport" content="width=device-width, initial-scale=1">
                 <title>TWOSI 开源镜像站</title>
                 ${commonStyles}
-                <script>
-                    document.addEventListener('DOMContentLoaded', () => {
-                        const search = document.getElementById('search');
-                        const sort = document.getElementById('sort');
-                        const grid = document.querySelector('.grid');
-                        let originalCards = Array.from(grid.children);
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const search = document.getElementById('search');
+        const sort = document.getElementById('sort');
+        const grid = document.querySelector('.grid');
+        let originalCards = Array.from(grid.children); // 保存原始卡片副本
 
-                        function updateView() {
-                            const searchTerm = search.value.toLowerCase();
-                            const sortKey = sort.value;
-                            
-                            const filtered = originalCards.filter(card => {
-                                const title = card.dataset.name.toLowerCase();
-                                const desc = card.dataset.desc?.toLowerCase() || '';
-                                return title.includes(searchTerm) || desc.includes(searchTerm);
-                            });
-                            
-                            const sorted = filtered.sort((a, b) => {
-                                if (sortKey === 'stars') {
-                                    return (b.dataset.stars || 0) - (a.dataset.stars || 0);
-                                }
-                                return new Date(b.dataset.updated) - new Date(a.dataset.updated);
-                            });
-                            
-                            grid.innerHTML = '';
-                            sorted.forEach(card => grid.appendChild(card.cloneNode(true)));
-                        }
+        function updateView() {
+            const searchTerm = search.value.toLowerCase();
+            const sortKey = sort.value;
+            
+            // 始终使用原始副本进行过滤
+            const filtered = originalCards.filter(card => {
+                const title = card.dataset.name.toLowerCase();
+                const desc = card.dataset.desc?.toLowerCase() || '';
+                return title.includes(searchTerm) || desc.includes(searchTerm);
+            });
+            
+            const sorted = filtered.sort((a, b) => {
+                if (sortKey === 'stars') {
+                    return (b.dataset.stars || 0) - (a.dataset.stars || 0);
+                }
+                return new Date(b.dataset.updated) - new Date(a.dataset.updated);
+            });
+            
+            // 清空并重新添加元素
+            grid.innerHTML = '';
+            sorted.forEach(card => grid.appendChild(card.cloneNode(true)));
+        }
 
-                        search.addEventListener('input', updateView);
-                        sort.addEventListener('change', updateView);
-                    });
-                </script>
+        search.addEventListener('input', updateView);
+        sort.addEventListener('change', updateView);
+    });
+</script>
             </head>
             <body>
                 <div class="header">
@@ -334,9 +318,7 @@ function startServer() {
                 
                 <div class="container">
                     <div class="grid">
-                        ${repos.map(repo => {
-                            const syncStatus = repo._syncMeta || {};
-                            return `
+                        ${repos.map(repo => `
                             <a 
                                 href="/${repo.name}/" 
                                 class="card"
@@ -347,15 +329,21 @@ function startServer() {
                             >
                                 <div style="display: flex; gap: 1rem; align-items: start;">
                                     <div style="flex: 1">
-                                        <h3>${repo.name.split('/')[1]}</h3>
+                                        <h3 style="color: var(--primary)">
+                                            ${repo.name.split('/')[1]}
+                                        </h3>
                                         <p style="color: #64748b; margin: 0.5rem 0">
                                             ${repo.name}
                                         </p>
                                         ${repo.meta?.description ? `
-                                            <p class="card-description">${repo.meta.description}</p>
+                                            <p style="
+                                                color: var(--secondary);
+                                                margin: 0.5rem 0;
+                                                font-size: 0.9em;
+                                            ">${repo.meta.description}</p>
                                         ` : ''}
                                         
-                                        <div style="margin-top: auto; padding-top: 1rem;">
+                                        <div style="margin-top: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap;">
                                             ${repo.version ? `
                                                 <div style="
                                                     display: inline-flex;
@@ -393,7 +381,6 @@ function startServer() {
                                                     background: #f1f5f9;
                                                     border-radius: 0.375rem;
                                                     font-size: 0.875rem;
-                                                    margin-top: 0.5rem;
                                                 ">
                                                     ★ ${repo.meta.stars.toLocaleString()}
                                                 </div>
@@ -411,17 +398,11 @@ function startServer() {
                                     ` : ''}
                                 </div>
                                 
-                                <div style="margin-top: 0.5rem; color: var(--secondary); font-size: 0.75rem">
-                                    ${syncStatus.attempts ? `
-                                        <span style="color: #dc2626;">
-                                            同步尝试中 (${syncStatus.attempts}/${MAX_RETRIES})
-                                        </span>
-                                    ` : `
-                                        最后同步：${repo.updated_at ? new Date(repo.updated_at).toLocaleDateString() : '从未同步'}
-                                    `}
+                                <div style="margin-top: 1rem; color: var(--secondary); font-size: 0.875rem">
+                                    最后同步：${repo.updated_at ? new Date(repo.updated_at).toLocaleDateString() : '从未同步'}
                                 </div>
                             </a>
-                        `}).join('')}
+                        `).join('')}
                     </div>
                 </div>
             </body>
@@ -430,7 +411,6 @@ function startServer() {
         res.send(html);
     });
 
-    
     // 仓库详情页
 app.get('/:owner/:repo', (req, res) => {
     const repo = `${req.params.owner}/${req.params.repo}`;
