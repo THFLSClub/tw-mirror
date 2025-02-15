@@ -113,20 +113,46 @@ async function updateRepo(repo) {
     }
 }
 
-// 智能排序仓库更新顺序
+// 智能排序仓库更新顺序（改进版）
 function getSortedRepos() {
+    const now = Date.now();
     return getRepositories()
-        .map(repo => ({
-            name: repo,
-            lastUpdated: repoCache[repo]?.updated_at || 0,
-            retryCount: repoCache[repo]?.retryCount || 0
-        }))
+        .map(repo => {
+            const cache = repoCache[repo] || {};
+            return {
+                name: repo,
+                lastUpdated: cache.updated_at || 0,
+                retryCount: cache.retryCount || 0,
+                nextRetry: cache.nextRetry || 0,
+                hasVersion: !!cache.version,
+            };
+        })
         .sort((a, b) => {
-            // 优先处理需要重试的仓库
-            if (a.retryCount > 0 || b.retryCount > 0) {
+            // 判断是否需要立即重试
+            const aCanRetry = a.retryCount > 0 && a.nextRetry <= now;
+            const bCanRetry = b.retryCount > 0 && b.nextRetry <= now;
+
+            // 分组优先级：
+            // 1. 可以立即重试的
+            // 2. 未同步过的（没有版本信息）
+            // 3. 其他（已同步过的，按更新时间排序）
+
+            // 处理组1
+            if (aCanRetry && !bCanRetry) return -1;
+            if (!aCanRetry && bCanRetry) return 1;
+
+            // 处理组2（未同步过的）
+            const aIsNew = !a.hasVersion && a.retryCount === 0;
+            const bIsNew = !b.hasVersion && b.retryCount === 0;
+            if (aIsNew && !bIsNew) return -1;
+            if (!aIsNew && bIsNew) return 1;
+
+            // 在组1内部，按retryCount升序排列
+            if (aCanRetry && bCanRetry) {
                 return a.retryCount - b.retryCount;
             }
-            // 没有重试的按更新时间排序
+
+            // 剩下的按更新时间排序
             return new Date(b.lastUpdated) - new Date(a.lastUpdated);
         });
 }
@@ -184,7 +210,6 @@ function startServer() {
                 display: grid;
                 gap: 1.5rem;
                 grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-       
             }
             .card {
                 background: var(--card-bg);
@@ -196,23 +221,6 @@ function startServer() {
                 word-break: break-word;
                 overflow-wrap: anywhere;
             }
-            /* 限制内容宽度 */
-        .repo-name {
-            max-width: 90%;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        /* 弹性布局防止溢出 */
-        .card > div:first-child {
-            display: flex;
-            gap: 1rem;
-            justify-content: space-between;
-        }
-        /* 语言标签对齐方式 */
-        .language-tag {
-            flex-shrink: 0;
-            align-self: flex-start;
-        }
             .card:hover {
                 transform: translateY(-2px);
             }
@@ -249,40 +257,38 @@ function startServer() {
                 <meta name="viewport" content="width=device-width, initial-scale=1">
                 <title>TWOSI 开源镜像站</title>
                 ${commonStyles}
-<script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const search = document.getElementById('search');
-        const sort = document.getElementById('sort');
-        const grid = document.querySelector('.grid');
-        let originalCards = Array.from(grid.children); // 保存原始卡片副本
+                <script>
+                    document.addEventListener('DOMContentLoaded', () => {
+                        const search = document.getElementById('search');
+                        const sort = document.getElementById('sort');
+                        const grid = document.querySelector('.grid');
+                        let originalCards = Array.from(grid.children);
 
-        function updateView() {
-            const searchTerm = search.value.toLowerCase();
-            const sortKey = sort.value;
-            
-            // 始终使用原始副本进行过滤
-            const filtered = originalCards.filter(card => {
-                const title = card.dataset.name.toLowerCase();
-                const desc = card.dataset.desc?.toLowerCase() || '';
-                return title.includes(searchTerm) || desc.includes(searchTerm);
-            });
-            
-            const sorted = filtered.sort((a, b) => {
-                if (sortKey === 'stars') {
-                    return (b.dataset.stars || 0) - (a.dataset.stars || 0);
-                }
-                return new Date(b.dataset.updated) - new Date(a.dataset.updated);
-            });
-            
-            // 清空并重新添加元素
-            grid.innerHTML = '';
-            sorted.forEach(card => grid.appendChild(card.cloneNode(true)));
-        }
+                        function updateView() {
+                            const searchTerm = search.value.toLowerCase();
+                            const sortKey = sort.value;
+                            
+                            const filtered = originalCards.filter(card => {
+                                const title = card.dataset.name.toLowerCase();
+                                const desc = card.dataset.desc?.toLowerCase() || '';
+                                return title.includes(searchTerm) || desc.includes(searchTerm);
+                            });
+                            
+                            const sorted = filtered.sort((a, b) => {
+                                if (sortKey === 'stars') {
+                                    return (b.dataset.stars || 0) - (a.dataset.stars || 0);
+                                }
+                                return new Date(b.dataset.updated) - new Date(a.dataset.updated);
+                            });
+                            
+                            grid.innerHTML = '';
+                            sorted.forEach(card => grid.appendChild(card.cloneNode(true)));
+                        }
 
-        search.addEventListener('input', updateView);
-        sort.addEventListener('change', updateView);
-    });
-</script>
+                        search.addEventListener('input', updateView);
+                        sort.addEventListener('change', updateView);
+                    });
+                </script>
             </head>
             <body>
                 <div class="header">
@@ -412,70 +418,70 @@ function startServer() {
     });
 
     // 仓库详情页
-app.get('/:owner/:repo', (req, res) => {
-    const repo = `${req.params.owner}/${req.params.repo}`;
-    const data = repoCache[repo];
-    
-    if (!data || !data.version) {
-        return res.status(404).redirect('/404');
-    }
+    app.get('/:owner/:repo', (req, res) => {
+        const repo = `${req.params.owner}/${req.params.repo}`;
+        const data = repoCache[repo];
+        
+        if (!data || !data.version) {
+            return res.status(404).redirect('/404');
+        }
 
-    // 增加安全访问逻辑
-    const versionDisplay = data.version 
-        ? (data.version.startsWith('v') ? data.version : `v${data.version}`)
-        : '版本信息不可用';
+        const versionDisplay = data.version 
+            ? (data.version.startsWith('v') ? data.version : `v${data.version}`)
+            : '版本信息不可用';
 
-    const assetItems = (data.assets || [])
-        .map(asset => `
-            <div class="card">
-                <div style="display: flex; justify-content: space-between; align-items: center">
-                    <div>
-                        <h3 style="margin-bottom: 0.25rem">${asset.name || '未命名文件'}</h3>
-                        <small>${data.updated_at ? new Date(data.updated_at).toLocaleString() : '未知时间'} 同步</small>
-                    </div>
-                    ${asset.download_url ? `
-                    <a href="/${repo}/${asset.name}" 
-                       style="padding: 0.5rem 1rem; background: var(--primary); color: white; border-radius: 0.375rem; text-decoration: none;"
-                       download>
-                        ↓
-                    </a>
-                    ` : '<span style="color: var(--error)">无效链接</span>'}
-                </div>
-            </div>
-        `).join('');
-
-    res.send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>${repo} - TWOSI</title>
-            ${commonStyles}
-        </head>
-        <body>
-            <div class="header">
-                <div class="container">
-                    <a href="/" style="color: white; text-decoration: none; display: inline-block; margin-bottom: 1rem">
-                        ← 返回首页
-                    </a>
-                    <h1>${repo.split('/')[1]}</h1>
-                    <p>${repo} @ ${versionDisplay}</p>
-                </div>
-            </div>
-
-            <div class="container">
+        const assetItems = (data.assets || [])
+            .map(asset => `
                 <div class="card">
-                    <h2 style="margin-bottom: 1rem">可用下载</h2>
-                    <div class="grid">
-                        ${assetItems}
+                    <div style="display: flex; justify-content: space-between; align-items: center">
+                        <div>
+                            <h3 style="margin-bottom: 0.25rem">${asset.name || '未命名文件'}</h3>
+                            <small>${data.updated_at ? new Date(data.updated_at).toLocaleString() : '未知时间'} 同步</small>
+                        </div>
+                        ${asset.download_url ? `
+                        <a href="/${repo}/${asset.name}" 
+                           style="padding: 0.5rem 1rem; background: var(--primary); color: white; border-radius: 0.375rem; text-decoration: none;"
+                           download>
+                            ↓
+                        </a>
+                        ` : '<span style="color: var(--error)">无效链接</span>'}
                     </div>
                 </div>
-            </div>
-        </body>
-        </html>
-    `);
-});
+            `).join('');
+
+        res.send(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <title>${repo} - TWOSI</title>
+                ${commonStyles}
+            </head>
+            <body>
+                <div class="header">
+                    <div class="container">
+                        <a href="/" style="color: white; text-decoration: none; display: inline-block; margin-bottom: 1rem">
+                            ← 返回首页
+                        </a>
+                        <h1>${repo.split('/')[1]}</h1>
+                        <p>${repo} @ ${versionDisplay}</p>
+                    </div>
+                </div>
+
+                <div class="container">
+                    <div class="card">
+                        <h2 style="margin-bottom: 1rem">可用下载</h2>
+                        <div class="grid">
+                            ${assetItems}
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `);
+    });
+
     // 文件代理下载
     app.get('/:owner/:repo/:filename', (req, res) => {
         const repo = `${req.params.owner}/${req.params.repo}`;
@@ -483,47 +489,47 @@ app.get('/:owner/:repo', (req, res) => {
         const asset = repoCache[repo]?.assets.find(a => a.name === filename);
 
         if (!asset) {
-        return res.status(404).redirect('/404'); // 重定向到404页面
-    }
-
+            return res.status(404).redirect('/404');
+        }
         
         res.redirect(`${MIRROR_BASE}${asset.download_url}`);
     });
 
+    // 404处理
     app.all('*', (req, res) => {
-    res.status(404).send(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="utf-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1">
-            <title>页面未找到 - TWOSI</title>
-            ${commonStyles}
-        </head>
-        <body>
-            <div class="header">
+        res.status(404).send(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <title>页面未找到 - TWOSI</title>
+                ${commonStyles}
+            </head>
+            <body>
+                <div class="header">
+                    <div class="container">
+                        <h1>404 - 页面未找到</h1>
+                        <p>请求的资源不存在</p>
+                    </div>
+                </div>
                 <div class="container">
-                    <h1>404 - 页面未找到</h1>
-                    <p>请求的资源不存在</p>
+                    <div class="card" style="text-align: center; padding: 3rem">
+                        <p style="font-size: 1.2rem; margin-bottom: 1.5rem">😢 您访问的页面不存在</p>
+                        <a href="/" style="
+                            padding: 0.75rem 1.5rem;
+                            background: var(--primary);
+                            color: white;
+                            border-radius: 0.5rem;
+                            text-decoration: none;
+                            display: inline-block;
+                        ">返回首页</a>
+                    </div>
                 </div>
-            </div>
-            <div class="container">
-                <div class="card" style="text-align: center; padding: 3rem">
-                    <p style="font-size: 1.2rem; margin-bottom: 1.5rem">😢 您访问的页面不存在</p>
-                    <a href="/" style="
-                        padding: 0.75rem 1.5rem;
-                        background: var(--primary);
-                        color: white;
-                        border-radius: 0.5rem;
-                        text-decoration: none;
-                        display: inline-block;
-                    ">返回首页</a>
-                </div>
-            </div>
-        </body>
-        </html>
-    `);
-});
+            </body>
+            </html>
+        `);
+    });
 
     app.listen(PORT, () => {
         console.log(`服务已启动: http://localhost:${PORT}`);
